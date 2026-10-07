@@ -18,35 +18,25 @@ function createDirectoryIfNotExists(directory) {
 }
 
 export async function saveImage(url, imageName, directory) {
-    const extension = url.split('.').pop();
-	const imagePath = `${directory}/${imageName}.${extension}`;
-	const writer = fs.createWriteStream(imagePath);
-
+	const extension = getExtension(url);
+	const imagePath = path.join(directory, `${imageName}${extension}`);
+ 
 	createDirectoryIfNotExists(directory);
-
+ 
 	try {
-        const imageData = await downloadImage(url);
-
-        imageData.pipe(writer);
-
-        await new Promise((resolve, reject) => {
-            writer.on('finish', resolve);
-            writer.on('error', reject);
-        });
-
-        return imagePath;
-    } catch (error) {
-        // Handle errors
-        console.error('Error saving image:', error);
-
-        // Clean up incomplete file if exists
-        if (fs.existsSync(imagePath)) {
-            fs.unlinkSync(imagePath);
-        }
-
-        throw new Error('Failed to save image');
-    } finally {
-        // Ensure the writer is closed and cleaned up
-        writer.close();
-    }
+		const imageData = await downloadImage(url);
+		// pipeline waits for the write to finish and closes both streams, even on error
+		await pipeline(imageData, fs.createWriteStream(imagePath));
+ 
+		return imagePath;
+	} catch (error) {
+		console.error('Error saving image:', error);
+ 
+		// Clean up incomplete file if it exists
+		if (fs.existsSync(imagePath)) {
+			fs.unlinkSync(imagePath);
+		}
+ 
+		throw new Error('Failed to save image');
+	}
 }
